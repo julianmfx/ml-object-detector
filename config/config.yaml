@@ -1,0 +1,4 @@
+base_dir: ..
+output_subdir: output_images
+model_name: yolov8n.pt
+confidence_threshold: 0.8
