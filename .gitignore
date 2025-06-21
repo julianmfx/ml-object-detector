@@ -2,5 +2,7 @@
 ml-object-detector.code-workspace
 ml_object_detector.egg-info/
 venv/
+.env
 __pycache__/
 *.pyc
+input_images/
