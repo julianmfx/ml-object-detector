@@ -1,4 +1,7 @@
 base_dir: ..
-output_subdir: output_images
+input_dir: input_images
+output_dir: output_images
+model_dir: models
 model_name: yolov8n.pt
+logs_dir: logs
 confidence_threshold: 0.8
