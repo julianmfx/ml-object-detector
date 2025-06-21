@@ -5,4 +5,13 @@ venv/
 .env
 __pycache__/
 *.pyc
-input_images/
+input_images/*
+output_images/*
+logs/*
+models/*
+
+# Not ignored files
+!input_images/.gitkeep
+!output_images/.gitkeep
+!logs/.gitkeep
+!models/.gitkeep
