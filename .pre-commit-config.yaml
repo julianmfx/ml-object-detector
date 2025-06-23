@@ -1,0 +1,20 @@
+# .pre-commit-config.yaml
+repos:
+  # ------------------- generic hygiene -------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  # ------------------- clean notebook outputs ------------
+  - repo: https://github.com/srstevenson/nb-clean
+    rev: "4.0.1"                 # exact tag → reproducible
+    hooks:
+      - id: nb-clean
+        args:
+          - --remove-empty-cells
+          - --preserve-cell-metadata
+          - tags                 # keep cell tags
+          - --                   # mandatory separator
