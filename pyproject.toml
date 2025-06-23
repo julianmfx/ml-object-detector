@@ -7,6 +7,10 @@ name = "ml_object_detector"
 version = "0.1.0"
 dependencies = []
 
+[project.scripts]
+ml-etl = "scripts.run_etl:main"
+
+
 [project.optional-dependencies]
 dev = [
   "pre-commit>=3.7",
