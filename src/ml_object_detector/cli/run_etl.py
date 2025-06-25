@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from etl.download_images import download_image
+from ml_object_detector.etl.download_images import download_image
 import logging
 
 if __name__ == "__main__":
