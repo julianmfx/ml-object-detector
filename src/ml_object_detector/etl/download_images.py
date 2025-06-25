@@ -3,7 +3,7 @@ import os
 import requests
 import logging
 from pathlib import Path
-from config.load_config import load_config
+from ml_object_detector.config.load_config import load_config
 from dotenv import load_dotenv
 
 load_dotenv()
