@@ -13,11 +13,11 @@ def clean_output(tmp_path):
     """
     destination = OUTPUT_DIR / "pytest_run"
     if destination.exists():
-        shutil.rmtree(destination)
+        shutil.rmtree(destination) # delete if exists
 
     destination.mkdir(parents=True, exist_ok=True)
     yield destination
-    shutil.rmtree(destination)
+    shutil.rmtree(destination) # delete after test run
 
 
 def test_predictor(clean_output):
