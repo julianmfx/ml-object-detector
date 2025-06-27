@@ -9,12 +9,20 @@ input_images/*
 output_images/*
 data/*
 logs/*
+<<<<<<< HEAD
 src/ml_object_detector/models/weights/*.pt
+=======
+src/object_detector_models/*
+>>>>>>> 022d6b2 (Save model infra)
 architecture.txt
 
 # Not ignored files
 !input_images/.gitkeep
 !output_images/.gitkeep
 !logs/.gitkeep
+<<<<<<< HEAD
 !src/models/.gitkeep
 !data/.gitkeep
+=======
+!src/object_detector_models/.gitkeep
+>>>>>>> 022d6b2 (Save model infra)
