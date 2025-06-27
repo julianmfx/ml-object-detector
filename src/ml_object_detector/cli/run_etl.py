@@ -5,8 +5,9 @@ from ml_object_detector.etl.download_images import setup_logs
 def main() -> None:
     """Main function to run the ETL process."""
     log = setup_logs()
-    download_image("picnic", n=10, log=log)
-    download_image("surfing", n=10, log=log)
+    log.info("Starting ETL process...")
+    download_image("picnic", n=5, log=log)
+    download_image("surfing", n=5, log=log)
     log.info("ETL finished.")
 
 if __name__ == "__main__":

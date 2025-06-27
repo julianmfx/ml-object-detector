@@ -39,7 +39,7 @@ def load_config(config_path: str | Path | None = None) -> dict:
     def abs_path_(rel_path: str | Path) -> Path:
         return (project_root / rel_path).expanduser().resolve()
 
-    for key in ["input_dir", "output_dir", "model_dir", "model_path", "logs_dir"]:
+    for key in ["input_dir", "output_dir", "model_dir", "logs_dir"]:
         cfg[key] = abs_path_(cfg[key])
 
     return cfg

@@ -9,7 +9,7 @@ dependencies = []
 
 [project.scripts]
 ml-etl = "ml_object_detector.cli.run_etl:main"
-
+ml-pipeline = "ml_object_detector.cli.run_pipeline:main"
 
 [project.optional-dependencies]
 dev = [

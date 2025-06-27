@@ -1,28 +1,29 @@
 from pathlib import Path
-import logging
 
 from ultralytics import YOLO
-from config.load_config import load_config
+from ml_object_detector.config.load_config import load_config
+from ml_object_detector.etl.download_images import setup_logs
 
 cfg = load_config()
+log = setup_logs()
 
 # ------------------------------------------------------------------
 # 1.  Establish the project root
 # ------------------------------------------------------------------
-ROOT = Path(cfg["base_dir"])
+ROOT = Path(cfg["ROOT"])
 
 # ------------------------------------------------------------------
 # 2.  Build all other paths relative to that root
 # ------------------------------------------------------------------
-SOURCE_DIR   = ROOT / cfg["input_dir"]                  # data/raw
-OUTPUT_DIR   = ROOT / cfg["output_dir"]                 # data/processed
-MODEL_DIR    = ROOT / cfg["model_dir"]                  # models
-MODEL_PATH   = ROOT / cfg["model_path"]                 # models/weight/yolov8n.pt
-LOGS_DIR     = ROOT / cfg["logs_dir"]                   # logs
+SOURCE_DIR = ROOT / cfg["input_dir"]  # data/raw
+OUTPUT_DIR = ROOT / cfg["output_dir"]  # data/processed
+MODEL_DIR = ROOT / cfg["model_dir"]  # ml_object_detector/models/weights
+MODEL_NAME = cfg["model_name"]  # yolov8n.pt
+LOGS_DIR = ROOT / cfg["logs_dir"]  # logs
+CONF_THRESH = float(cfg["confidence_threshold"])  # 0.8
+MODEL_PATH = MODEL_DIR / MODEL_NAME  # ml_object_detector/models/weights/yolov8n.pt
 
-CONF_THRESH  = float(cfg["confidence_threshold"])       # 0.8
-
-logging.info("Loading YOLO weights from %s", MODEL_PATH)
+log.info("Loading YOLO weights from %s", MODEL_NAME)
 
 
 class YoloPredictor:
@@ -35,7 +36,7 @@ class YoloPredictor:
     def __init__(self, model_path: str | Path = MODEL_PATH) -> None:
         self.model = YOLO(model_path)
         self.model.info()
-        logging.info("YOLO model loaded and ready.")
+        log.info("YOLO model loaded and ready.")
 
     def predict_images_in_folder(
         self,
@@ -45,7 +46,7 @@ class YoloPredictor:
     ):
         """
         Run inference on **all** images in `folder` and
-        save annotated copies to `out_dir`.
+        save annotated copies plus labels to `out_dir`.
 
         Parameters
         ----------
@@ -54,9 +55,9 @@ class YoloPredictor:
         conf     : confidence threshold (0–1)
         """
         # fall back to YAML defaults only when arguments aren’t provided
-        folder  = Path(folder  or SOURCE_DIR)
+        folder = Path(folder or SOURCE_DIR)
         out_dir = Path(out_dir or OUTPUT_DIR)
-        conf    = float(conf if conf is not None else CONF_THRESH)
+        conf = float(conf if conf is not None else CONF_THRESH)
         out_dir.mkdir(parents=True, exist_ok=True)
         results = self.model.predict(
             source=folder,

@@ -58,7 +58,7 @@ def setup_logs(log_path=LOGS_DIR / "download_images.log") -> logging.Logger:
     return logging.getLogger("download_logger")
 
 
-def download_image(query: str, n: int = 10, log: logging.Logger | None = None) -> None:
+def download_image(query: str, n: int = 5, log: logging.Logger | None = None) -> None:
     """Download *n* images for *query* into DESTINATION_DIR."""
     assert isinstance(n, int) and n > 0, "n must be a positive integer"
     log = log or logging.getLogger("download_logger")

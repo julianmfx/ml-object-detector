@@ -1,8 +1,7 @@
 # base_dir: .. # Legacy path, not used in the src-layout structure
 input_dir: data/raw
 output_dir: data/processed
-model_dir: models
+model_dir: src/ml_object_detector/models/weights
 model_name: yolov8n.pt
-model_path: models/weight/yolov8n.pt
 logs_dir: logs
 confidence_threshold: 0.8
