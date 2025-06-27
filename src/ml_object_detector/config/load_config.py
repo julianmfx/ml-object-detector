@@ -33,7 +33,7 @@ def load_config(config_path: str | Path | None = None) -> dict:
         cfg = yaml.safe_load(f)
 
     # -- anchor every relative path to "base_dir" interpreted relative to *this* file
-    project_root = (Path(__file__).resolve().parent / cfg["base_dir"]).resolve()
+    project_root = Path(__file__).resolve().parents[3]
     cfg["ROOT"] = project_root
 
     def abs_path_(rel_path: str | Path) -> Path:

@@ -7,6 +7,10 @@ name = "ml_object_detector"
 version = "0.1.0"
 dependencies = []
 
+[project.scripts]
+ml-etl = "ml_object_detector.cli.run_etl:main"
+
+
 [project.optional-dependencies]
 dev = [
   "pre-commit>=3.7",
@@ -14,5 +18,5 @@ dev = [
   "nbdime>=3.2",
 ]
 
-[tool.setuptools.packages.find]
-where = ["."]
+[tool.setuptools]
+package-dir = {"" = "src"}
