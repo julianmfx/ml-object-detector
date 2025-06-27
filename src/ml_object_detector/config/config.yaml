@@ -1,4 +1,4 @@
-base_dir: ..
+# base_dir: .. # Legacy path, not used in the src-layout structure
 input_dir: data/raw
 output_dir: data/processed
 model_dir: models
