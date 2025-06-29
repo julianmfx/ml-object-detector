@@ -12,6 +12,8 @@ logs/*
 src/ml_object_detector/models/weights/*.pt
 src/ml_object_detector/models/*
 architecture.txt
+reports/*
+uploads/*
 
 # Not ignored files
 !input_images/.gitkeep
@@ -19,3 +21,5 @@ architecture.txt
 !logs/.gitkeep
 !data/.gitkeep
 !src/ml_object_detector/models/.gitkeep
+!reports/.gitkeep
+!uploads/.gitkeep

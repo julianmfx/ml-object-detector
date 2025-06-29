@@ -58,7 +58,7 @@ def setup_logs(log_path=LOGS_DIR / "download_images.log") -> logging.Logger:
     return logging.getLogger("download_logger")
 
 
-def download_image(query: str, n: int = 5, log: logging.Logger | None = None) -> None:
+def download_image(query: str, n: int = 5, log: logging.Logger | None = None) -> list[Path]:
     """Download *n* images for *query* into DESTINATION_DIR."""
     assert isinstance(n, int) and n > 0, "n must be a positive integer"
     log = log or logging.getLogger("download_logger")
@@ -72,6 +72,7 @@ def download_image(query: str, n: int = 5, log: logging.Logger | None = None) ->
     log.info("Files will saved in %s", DESTINATION_DIR)
     log.info("Downloading %d images for query '%s'", n, query)
 
+    saved: list[Path] = []
     for photo in response.json()["photos"]:
         image_url = photo["src"]["original"]
         filename = DESTINATION_DIR / image_url.split("/")[-1].split("?")[0]
@@ -83,7 +84,9 @@ def download_image(query: str, n: int = 5, log: logging.Logger | None = None) ->
         image_bytes = requests.get(image_url, timeout=30).content
         filename.write_bytes(image_bytes)
         downloaded += 1
+        saved.append(filename)
         log.debug("Downloaded: %s", filename)
 
     log.info("Requested %d photos, saved %d photos", n, downloaded)
     log.info("Details saved in %s", LOGS_DIR / "download_images.log")
+    return saved
