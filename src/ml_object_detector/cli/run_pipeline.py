@@ -17,6 +17,11 @@ import importlib
 from ml_object_detector.config.load_config import load_config
 from ml_object_detector.etl.download_images import download_image, setup_logs
 from ml_object_detector.models.predictor import YoloPredictor
+from ml_object_detector.postprocess.analysis import (
+    summarise_predictions,
+    build_summaries,
+)
+from ml_object_detector.postprocess.html_report import write_html_report
 
 
 # helper
@@ -100,7 +105,6 @@ def main() -> None:
             else:
                 raise ValueError("Invalid input for number of images.")
 
-
             downloaded = run_custom_etl(queries, n, log)
             if not downloaded:
                 log.error("ETL process was canceled or failed - aborting.")
@@ -137,16 +141,28 @@ def main() -> None:
             return
 
     # Check if images are found
-    has_images = any(images_dir.glob("*.jpg")) \
-                or any(images_dir.glob("*.jpeg")) \
-                or any(images_dir.glob("*.png"))
+    has_images = (
+        any(images_dir.glob("*.jpg"))
+        or any(images_dir.glob("*.jpeg"))
+        or any(images_dir.glob("*.png"))
+    )
 
     if not has_images:
         log.warning("No images found in %s - skipping prediction step.", images_dir)
         return
 
-    YoloPredictor().predict_images_in_folder(folder=images_dir, conf=conf)
+    results = YoloPredictor().predict_images_in_folder(folder=images_dir, conf=conf)
+    log.info("Prediction finished, processing results...")
 
+    summaries = build_summaries(results, conf_threshold=conf)
+
+    for line in summarise_predictions(results, conf_threshold=conf):
+        log.info(line)
+
+    report_dir = Path(cfg["ROOT"]) / cfg["reports_dir"]
+    report = write_html_report(summaries, out_dir=report_dir)
+
+    print(f"HTML report written in {report.resolve()}")
     log.info("Pipeline finished successfully.")
 
 
