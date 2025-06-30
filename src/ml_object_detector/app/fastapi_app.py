@@ -1,9 +1,18 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Form, Request
+from fastapi import (
+    FastAPI,
+    UploadFile,
+    File,
+    HTTPException,
+    BackgroundTasks,
+    Form,
+    Request,
+)
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import shutil
 import uuid
+import datetime
 
 from ml_object_detector.config.load_config import load_config
 from ml_object_detector.etl.download_images import download_image, setup_logs
@@ -15,21 +24,32 @@ from ml_object_detector.postprocess.html_report import write_html_report
 # Initialization
 
 cfg = load_config()
-ROOT = Path(cfg["ROOT"])
 log = setup_logs()
-app = FastAPI(title="ml-object-detector API")
-app.mount(
-    "/reports",                               # URL prefix
-    StaticFiles(directory=ROOT / cfg["reports_dir"]),
-    name="reports",
-)
+
+ROOT = Path(cfg["ROOT"])
+REPORTS_DIR = ROOT / cfg["reports_dir"]
+PROCESSED_IMAGES_DIR = ROOT / cfg["output_dir"]
+
 model = YoloPredictor()
+
+# Mount API
+app = FastAPI(title="ml-object-detector API")
+
+# Routing API to serve HTML reports
+app.mount(
+    "/reports",  # URL prefix
+    StaticFiles(directory=REPORTS_DIR, html=True),
+    name="reports"
+)
+
+# Rounting API to serve model artifacts (images)
+app.mount("/processed", StaticFiles(directory=PROCESSED_IMAGES_DIR), name="processed")
+
 
 # Helpers
 
 
-def _save_uploads(files: list[UploadFile]) -> list[Path]:
-    dest_dir = ROOT / cfg["uploads_dir"]
+def _save_uploads(files: list[UploadFile], dest_dir: Path) -> list[Path]:
     dest_dir.mkdir(exist_ok=True, parents=True)
     paths = []
 
@@ -42,14 +62,15 @@ def _save_uploads(files: list[UploadFile]) -> list[Path]:
     return paths
 
 
-def _run_yolo_and_report(image_paths: list[Path], conf: float) -> Path:
+def _run_yolo_and_report(source_dir: Path, conf: float, run_id: str) -> Path:
     # point to the folder that now contains the images
-    images_dir = ROOT / cfg["input_dir"]
-
-    results = model.predict_images_in_folder(folder=images_dir, conf=conf)
-    summaries = build_summaries(results, conf_threshold=conf)
+    processed_run_dir = PROCESSED_IMAGES_DIR / run_id
+    results = model.predict_images_in_folder(
+        folder=source_dir, out_dir=processed_run_dir, conf=conf
+    )
+    summaries = build_summaries(results, conf_threshold=conf, run_id=run_id)
     report_dir = ROOT / cfg["reports_dir"]
-    return write_html_report(summaries, report_dir)
+    return write_html_report(summaries=summaries, reports_dir=report_dir, run_id=run_id)
 
 
 # Routes
@@ -87,9 +108,12 @@ async def detect_upload(
     if not (0.0 <= conf <= 1.0):
         raise HTTPException(400, "Confidence threshold must be between 0 and 1!")
 
-    paths = _save_uploads(files)
+    run_id = datetime.now().strftime("%Y%m%dT%H%M%S")
+    run_raw_dir = ROOT / cfg["input_dir"] / run_id  # data/raw/<run_id>/
+
+    paths = _save_uploads(files, dest_dir=run_raw_dir)
     # run heavy work in background so the request returns fast
-    background.add_task(_run_yolo_and_report, paths, conf)
+    background.add_task(_run_yolo_and_report, run_raw_dir, conf, run_id)
 
     return JSONResponse(
         {
@@ -102,8 +126,7 @@ async def detect_upload(
 
 @app.post("/detect_query")
 async def detect_query(
-    request: Request,
-    query: str = Form(...), n: int = Form(5), conf: float = Form(0.8)
+    request: Request, query: str = Form(...), n: int = Form(5), conf: float = Form(0.8)
 ):
     """
     Replicates the CLI's ETL path: downlaod images for a query string.
@@ -119,19 +142,21 @@ async def detect_query(
     if not (0.0 <= conf <= 1.0):
         raise HTTPException(400, "Confidence threshold must be between 0 and 1!")
 
-    image_paths: list[Path] = []
-    for term in [q.strip() for q in query.split(",") if q.strip()]:
-        image_paths.extend(download_image(term, n=n, log=log))
+    run_id      = datetime.now().strftime("%Y%m%dT%H%M%S")
+    run_raw_dir = ROOT / cfg["input_dir"] / run_id
+    run_raw_dir.mkdir(parents=True, exist_ok=True)
 
-    report_path = _run_yolo_and_report(image_paths, conf)
+    for term in [q.strip() for q in query.split(",") if q.strip()]:
+        download_image(term, n=n, log=log, dest_dir=run_raw_dir)
+
+    report_path = _run_yolo_and_report(run_raw_dir, conf, run_id)
     report_url = f"reports/{report_path.name}"
 
-    if "text/html" in request.headers.get("accept",""):
+    if "text/html" in request.headers.get("accept", ""):
         # Browser to the report
         return RedirectResponse(url=report_url, status_code=303)
 
     return {
-        "images": [p.name for p in image_paths],
         "html_report": str(report_path.relative_to(ROOT)),
         "log_file": str(
             (ROOT / cfg["logs_dir"] / "download_images.log").relative_to(ROOT)
