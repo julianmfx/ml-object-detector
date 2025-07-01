@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from ml_object_detector.config.load_config import load_config
+from ml_object_detector.utils.fs import ensure_directory_exists
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -19,7 +20,7 @@ if not PEXELS_API_KEY:
 HEADERS = {"Authorization": PEXELS_API_KEY}
 BASE_DIR = Path(cfg["ROOT"])
 DESTINATION_DIR = Path(BASE_DIR / cfg["input_dir"])
-DESTINATION_DIR.mkdir(parents=True, exist_ok=True)
+ensure_directory_exists(DESTINATION_DIR)
 LOGS_DIR = Path(BASE_DIR / cfg["logs_dir"])
 
 
@@ -30,47 +31,6 @@ def make_immutable_name(raw_bytes: bytes, ext: str = "") -> str:
     """
     hash = hashlib.sha1(raw_bytes).hexdigest()[:12]
     return f"{hash}{ext}"
-
-
-def setup_logs(log_path=LOGS_DIR / "download_images.log") -> logging.Logger:
-    log_path = Path(log_path)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    cfg = {
-        "version": 1,
-        "disable_existing_loggers": False,  # leave 3-party logs intact
-        "formatters": {
-            "std": {"format": "%(asctime)s [%(levelname)s] %(message)s"},
-        },
-        "handlers": {
-            # Console — INFO+
-            "console": {
-                "class": "logging.StreamHandler",
-                "level": "INFO",
-                "formatter": "std",
-            },
-            # Rotating file — DEBUG & up
-            "debug_file": {
-                "class": "logging.handlers.RotatingFileHandler",
-                "level": "DEBUG",
-                "formatter": "std",
-                "filename": Path(log_path),
-                "maxBytes": 5_000_000,  # 5 MB
-                "backupCount": 3,  # keep 3 old
-            },
-        },
-        "loggers": {
-            # Your app logger
-            "download_logger": {
-                "handlers": ["console", "debug_file"],
-                "level": "DEBUG",
-                "propagate": False,
-            }
-        },
-    }
-
-    logging.config.dictConfig(cfg)
-    return logging.getLogger("download_logger")
-
 
 def download_image(
     query: str,
@@ -83,7 +43,7 @@ def download_image(
     log = log or logging.getLogger("download_logger")
 
     DEST = Path(dest_dir or DESTINATION_DIR)           # NEW
-    DEST.mkdir(parents=True, exist_ok=True)            # ensure
+    ensure_directory_exists(DEST)                      # ensure
 
     url = "https://api.pexels.com/v1/search"
     params = {"query": query, "per_page": n}
@@ -111,7 +71,7 @@ def download_image(
             continue
 
         # Ensure parent directory exists
-        filename.parent.mkdir(parents=True, exist_ok=True)
+        ensure_directory_exists(filename.parent)
         filename.write_bytes(image_bytes)
 
         downloaded += 1

@@ -7,15 +7,22 @@ from fastapi import (
     Form,
     Request,
 )
+from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+import asyncio
+
 from pathlib import Path
 import shutil
 import uuid
-import datetime
+from datetime import datetime
 
 from ml_object_detector.config.load_config import load_config
-from ml_object_detector.etl.download_images import download_image, setup_logs
+from ml_object_detector.etl.download_images import download_image
+from ml_object_detector.utils.logging import setup_logs
+from ml_object_detector.utils.fs import ensure_directory_exists
+from ml_object_detector.utils.email_alarm import send_alarm_email
+from ml_object_detector.utils.clean_query_names import slugify
 from ml_object_detector.models.predictor import YoloPredictor
 from ml_object_detector.postprocess.analysis import build_summaries
 from ml_object_detector.postprocess.html_report import write_html_report
@@ -30,7 +37,13 @@ ROOT = Path(cfg["ROOT"])
 REPORTS_DIR = ROOT / cfg["reports_dir"]
 PROCESSED_IMAGES_DIR = ROOT / cfg["output_dir"]
 
+ensure_directory_exists(REPORTS_DIR)
+ensure_directory_exists(PROCESSED_IMAGES_DIR)
+
 model = YoloPredictor()
+
+# maps client IP
+client_locks: dict[str, asyncio.Lock] = {}
 
 # Mount API
 app = FastAPI(title="ml-object-detector API")
@@ -39,7 +52,7 @@ app = FastAPI(title="ml-object-detector API")
 app.mount(
     "/reports",  # URL prefix
     StaticFiles(directory=REPORTS_DIR, html=True),
-    name="reports"
+    name="reports",
 )
 
 # Rounting API to serve model artifacts (images)
@@ -50,7 +63,7 @@ app.mount("/processed", StaticFiles(directory=PROCESSED_IMAGES_DIR), name="proce
 
 
 def _save_uploads(files: list[UploadFile], dest_dir: Path) -> list[Path]:
-    dest_dir.mkdir(exist_ok=True, parents=True)
+    ensure_directory_exists(dest_dir)
     paths = []
 
     for file in files:
@@ -65,12 +78,26 @@ def _save_uploads(files: list[UploadFile], dest_dir: Path) -> list[Path]:
 def _run_yolo_and_report(source_dir: Path, conf: float, run_id: str) -> Path:
     # point to the folder that now contains the images
     processed_run_dir = PROCESSED_IMAGES_DIR / run_id
+    ensure_directory_exists(processed_run_dir)
+
     results = model.predict_images_in_folder(
         folder=source_dir, out_dir=processed_run_dir, conf=conf
     )
     summaries = build_summaries(results, conf_threshold=conf, run_id=run_id)
     report_dir = ROOT / cfg["reports_dir"]
-    return write_html_report(summaries=summaries, reports_dir=report_dir, run_id=run_id)
+    ensure_directory_exists(report_dir)
+    report = write_html_report(
+        summaries=summaries, reports_dir=report_dir, run_id=run_id
+    )
+
+    if not summaries:
+        import threading
+
+        threading.Thread(
+            target=send_alarm_email, args=(run_id, len(results)), daemon=True
+        ).start()
+
+    return report
 
 
 # Routes
@@ -82,11 +109,12 @@ async def docs_page():
 
     return """
     <h1>YOLO object detector</h1>
+
     <h2>1. Try with your own images</h2>
     <form action="/detect_upload" method="post" enctype="multipart/form-data">
-      <input type="file" name="files" multiple accept="image/*">
+      <input type="file"   name="files" multiple accept="image/*">
       <input type="number" step="0.01" min="0" max="1" name="conf" value="0.8">
-      <button type="submit">Detect</button>
+      <button class="detect-btn" type="submit">Detect</button>
     </form>
 
     <h2>2. Or search &amp; auto-download from Pexels</h2>
@@ -94,10 +122,22 @@ async def docs_page():
       <input type="text"   name="query" placeholder="picnic, surfing" required>
       <input type="number" name="n"     min="1"  max="15" value="5">
       <input type="number" name="conf"  step="0.01" min="0" max="1" value="0.8">
-      <button type="submit">Detect</button>
+      <button class="detect-btn" type="submit">Detect</button>
     </form>
 
     <p><small>Prefer raw JSON? Open <code>/docs</code> for Swagger UI.</small></p>
+
+    <script>
+      document.querySelectorAll("form").forEach(f => {
+        f.addEventListener("submit", () => {
+          const btn = f.querySelector(".detect-btn");
+          if (btn) {
+            btn.disabled = true;
+            btn.textContent = "Processing…";
+          }
+        });
+      });
+    </script>
     """
 
 
@@ -110,6 +150,7 @@ async def detect_upload(
 
     run_id = datetime.now().strftime("%Y%m%dT%H%M%S")
     run_raw_dir = ROOT / cfg["input_dir"] / run_id  # data/raw/<run_id>/
+    ensure_directory_exists(run_raw_dir)
 
     paths = _save_uploads(files, dest_dir=run_raw_dir)
     # run heavy work in background so the request returns fast
@@ -119,19 +160,38 @@ async def detect_upload(
         {
             "status": "processing",
             "images": [p.name for p in paths],
-            "report_hint": f"Check {cfg['results_dir']} soon.",
+            "report_hint": f"Check {cfg['uploads_dir']} soon.",
         }
     )
 
 
 @app.post("/detect_query")
 async def detect_query(
-    request: Request, query: str = Form(...), n: int = Form(5), conf: float = Form(0.8)
+    request: Request,
+    background: BackgroundTasks,
+    query: str = Form(...),
+    n: int = Form(5),
+    conf: float = Form(0.8),
 ):
     """
-    Replicates the CLI's ETL path: downlaod images for a query string.
-    Run model and reutnr HTML report path.
+    1. Downloads <n> images from Pexels for every comma-separated term
+       in *query*.
+    2. Kicks off YOLO + HTML-report generation **in the background**.
+    3. Immediately redirects the browser to a lightweight “processing…”
+       page that polls until the report is ready.
     """
+    client_ip = request.client.host
+    lock = client_locks.setdefault(client_ip, asyncio.Lock())
+
+    if lock.locked():
+        return JSONResponse(
+            {"detail": "Previous detection stil precessing."},
+            status_code=HTTP_429_TOO_MANY_REQUESTS
+        )
+
+    await lock.acquire()
+
+    # Validation --------------------
     if not query:
         raise HTTPException(
             400, "A query is required in order to process de object detector."
@@ -142,23 +202,72 @@ async def detect_query(
     if not (0.0 <= conf <= 1.0):
         raise HTTPException(400, "Confidence threshold must be between 0 and 1!")
 
-    run_id      = datetime.now().strftime("%Y%m%dT%H%M%S")
+    # Folder set-up ───────────────────────────────────────────────
+    timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+    query_slug = slugify(query.replace(",", " "))
+
+    run_id = f"{query_slug}_{timestamp}"
     run_raw_dir = ROOT / cfg["input_dir"] / run_id
-    run_raw_dir.mkdir(parents=True, exist_ok=True)
+    ensure_directory_exists(run_raw_dir)
 
     for term in [q.strip() for q in query.split(",") if q.strip()]:
         download_image(term, n=n, log=log, dest_dir=run_raw_dir)
 
-    report_path = _run_yolo_and_report(run_raw_dir, conf, run_id)
-    report_url = f"reports/{report_path.name}"
+    # Kick off heavy task ───────────────────────────────────────────────
+    def task_wrapper():
+        try:
+            _run_yolo_and_report(run_raw_dir, conf, run_id)
+        finally:
+            lock.release()
 
-    if "text/html" in request.headers.get("accept", ""):
+    background.add_task(task_wrapper)
+
+    report_name = f"object_detector_report.html_{run_id}.html"
+    accepts_html =  "text/html" in request.headers.get("accept", "").lower()
+
+    if accepts_html:
         # Browser to the report
-        return RedirectResponse(url=report_url, status_code=303)
+        return RedirectResponse(
+            url=f"/processing/{run_id}/{report_name}", status_code=303
+        )
 
     return {
-        "html_report": str(report_path.relative_to(ROOT)),
-        "log_file": str(
-            (ROOT / cfg["logs_dir"] / "download_images.log").relative_to(ROOT)
-        ),
+        "run_id": run_id,
+        "status": "processing",
+        "poll_url": f"/processing/{run_id}/{report_name}",
+        "report_hint": f"/reports/{report_name} (once ready)",
+        "log_file": "/logs/download_images.log",
     }
+
+
+@app.get("/processing/{run_id}/{report_name}", response_class=HTMLResponse)
+async def processing(report_name: str, run_id: str):
+    report_path = REPORTS_DIR / report_name
+
+    if report_path.exists():
+        # Work finished → jump to the real report
+        return RedirectResponse(url=f"/reports/{report_name}", status_code=303)
+
+    # Still crunching – show spinner + auto refresh
+    return f"""
+    <html>
+      <head>
+        <title>Processing…</title>
+        <meta http-equiv="refresh" content="2">
+        <style>
+          @keyframes spin {{ 0% {{transform:rotate(0deg)}} 100% {{transform:rotate(360deg)}} }}
+          .loader {{
+              border: 8px solid #f3f3f3; border-top: 8px solid #3498db;
+              border-radius: 50%; width: 60px; height: 60px;
+              animation: spin 1s linear infinite; margin:40px auto;
+          }}
+          body {{font-family: sans-serif; text-align:center; padding-top:40px}}
+        </style>
+      </head>
+      <body>
+        <h2>Running object detection…</h2>
+        <p>This page will refresh automatically.</p>
+        <div class="loader"></div>
+      </body>
+    </html>
+    """

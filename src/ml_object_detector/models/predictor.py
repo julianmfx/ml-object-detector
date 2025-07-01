@@ -4,7 +4,7 @@ from typing import List
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 from ml_object_detector.config.load_config import load_config
-from ml_object_detector.etl.download_images import setup_logs
+from ml_object_detector.utils.logging import setup_logs
 
 cfg = load_config()
 log = setup_logs()

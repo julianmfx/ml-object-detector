@@ -40,7 +40,7 @@ def build_summaries(
     prefix = f"{run_id}/" if run_id else ""      # e.g. "20250630T190215/"
 
     for result in results:
-        image_name = Path(result.path).name
+        image_name = f"{Path(result.path).stem}.jpg"
         for cls_id, score in zip(result.boxes.cls, result.boxes.conf):
             if score < conf_threshold:
                 continue
