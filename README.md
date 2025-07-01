@@ -12,5 +12,6 @@ The image detector it be deployed through a API using FastAPI. Then, it will con
 
 # Next steps
 
-1. Implement alarm system that warns user if a prediction is have a probability lesser than 0.1.
-2. Ship through docker to test in another computers.
+1. Implement alarm system that warns user if there is no object predicted.
+2. Improve post method /detect_upload so it returns the image identified.
+3. Ship through docker to test in another computers.
