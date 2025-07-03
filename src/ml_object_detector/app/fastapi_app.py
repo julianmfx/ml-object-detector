@@ -90,12 +90,10 @@ def _run_yolo_and_report(source_dir: Path, conf: float, run_id: str) -> Path:
         summaries=summaries, reports_dir=report_dir, run_id=run_id
     )
 
-    if not summaries:
-        import threading
-
-        threading.Thread(
-            target=send_alarm_email, args=(run_id, len(results)), daemon=True
-        ).start()
+    # If there are not rows, it means there were not objects detected
+    # If there are more than 0 results, it means that at least one image was uploaded
+    if not summaries and len(results) > 0:
+            send_alarm_email(run_id, len(results))
 
     return report
 
