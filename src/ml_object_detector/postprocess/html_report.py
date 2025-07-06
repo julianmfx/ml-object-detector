@@ -45,6 +45,6 @@ def write_html_report(
     html = template.render(run_date=datetime.now(), rows=summaries)
 
     ensure_directory_exists(reports_dir)
-    report_path = reports_dir / f"object_detector_report.html_{run_id}.html"
+    report_path = reports_dir / f"report_{run_id}.html"
     report_path.write_text(html, encoding="utf-8")
     return report_path

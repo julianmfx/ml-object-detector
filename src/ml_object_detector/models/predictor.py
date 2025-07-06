@@ -76,5 +76,27 @@ class YoloPredictor:
             name=out_dir.name,
             exist_ok=True,
             conf=conf,
+            verbose=False,  # silence internal prints, avoid log line duplications
+        )
+        if results:
+            sp = results[0].speed
+            shape = getattr(results[0], "orig_shape", "unknown")
+            log.info(
+                "Speed: %.1fms preprocess, %.1fms inference, %.1fms postprocess "
+                "per image at shape %s",
+                sp.get("preprocess", 0.0),
+                sp.get("inference", 0.0),
+                sp.get("postprocess", 0.0),
+                shape,
+            )
+        else:
+            log.warning("YOLO.predict() returned no results - folder may be empty")
+        log.info("Results saved to %s", out_dir)
+        n_labels = sum(len(r.boxes) for r in results)
+        log.info(
+            "%d label%s saved to %s/labels",
+            n_labels,
+            "" if n_labels == 1 else "s",
+            out_dir,
         )
         return results

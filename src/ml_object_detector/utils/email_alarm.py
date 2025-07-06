@@ -17,7 +17,7 @@ def send_alarm_email(run_id: str, n_images: int) -> bool:
     to = os.getenv("SMTP_TO")
     server = os.getenv("SMTP_HOST")
     port =  int(os.getenv("SMTP_PORT", 587))
-    password = os.getenv("SMTP_PASS")
+    password = os.getenv("SMTP_PASSWORD")
 
     if not all([sender,to,server,password]):
         log.warning("Missing or incorrect SMTP configuration in enviroment variables")

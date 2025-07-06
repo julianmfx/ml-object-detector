@@ -55,7 +55,7 @@ app.mount(
     name="reports",
 )
 
-# Rounting API to serve model artifacts (images)
+# Routing API to serve model artifacts (images)
 app.mount("/processed", StaticFiles(directory=PROCESSED_IMAGES_DIR), name="processed")
 
 
@@ -99,6 +99,8 @@ def _run_yolo_and_report(source_dir: Path, conf: float, run_id: str) -> Path:
 
 
 # Routes
+
+
 @app.get("/", response_class=HTMLResponse)
 async def docs_page():
     """
@@ -220,7 +222,7 @@ async def detect_query(
 
     background.add_task(task_wrapper)
 
-    report_name = f"object_detector_report.html_{run_id}.html"
+    report_name = f"report_{run_id}.html"
     accepts_html =  "text/html" in request.headers.get("accept", "").lower()
 
     if accepts_html:
