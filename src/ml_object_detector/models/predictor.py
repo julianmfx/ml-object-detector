@@ -1,8 +1,10 @@
 from pathlib import Path
-
+from datetime import datetime
+from typing import List
 from ultralytics import YOLO
+from ultralytics.engine.results import Results
 from ml_object_detector.config.load_config import load_config
-from ml_object_detector.etl.download_images import setup_logs
+from ml_object_detector.utils.logging import setup_logs
 
 cfg = load_config()
 log = setup_logs()
@@ -30,7 +32,7 @@ class YoloPredictor:
     """
     Convenience wrapper around `ultralytics.YOLO` that
     1) loads the model once and
-    2) offers a single `predict_folder` method.
+    2) offers a single `predict_images_in_folder` method.
     """
 
     def __init__(self, model_path: str | Path = MODEL_PATH) -> None:
@@ -43,7 +45,7 @@ class YoloPredictor:
         folder: str | Path | None = None,
         out_dir: str | Path | None = None,
         conf: float | None = None,
-    ):
+    ) -> List[Results]:
         """
         Run inference on **all** images in `folder` and
         save annotated copies plus labels to `out_dir`.
@@ -52,14 +54,20 @@ class YoloPredictor:
         ----------
         folder   : source directory with .jpg/.png files
         out_dir  : where the annotated images should go
-        conf     : confidence threshold (0–1)
+        conf     : confidence threshold (0–1
+
+        Returns
+        -------
+        list[ultralytics.engine.results.Results]
+            One `Results` object per image.
+
         """
         # fall back to YAML defaults only when arguments aren’t provided
         folder = Path(folder or SOURCE_DIR)
         out_dir = Path(out_dir or OUTPUT_DIR)
         conf = float(conf if conf is not None else CONF_THRESH)
         out_dir.mkdir(parents=True, exist_ok=True)
-        results = self.model.predict(
+        results: List[Results] = self.model.predict(
             source=folder,
             save=True,
             save_txt=True,
@@ -68,5 +76,27 @@ class YoloPredictor:
             name=out_dir.name,
             exist_ok=True,
             conf=conf,
+            verbose=False,  # silence internal prints, avoid log line duplications
+        )
+        if results:
+            sp = results[0].speed
+            shape = getattr(results[0], "orig_shape", "unknown")
+            log.info(
+                "Speed: %.1fms preprocess, %.1fms inference, %.1fms postprocess "
+                "per image at shape %s",
+                sp.get("preprocess", 0.0),
+                sp.get("inference", 0.0),
+                sp.get("postprocess", 0.0),
+                shape,
+            )
+        else:
+            log.warning("YOLO.predict() returned no results - folder may be empty")
+        log.info("Results saved to %s", out_dir)
+        n_labels = sum(len(r.boxes) for r in results)
+        log.info(
+            "%d label%s saved to %s/labels",
+            n_labels,
+            "" if n_labels == 1 else "s",
+            out_dir,
         )
         return results

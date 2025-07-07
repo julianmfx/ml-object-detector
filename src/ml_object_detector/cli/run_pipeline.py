@@ -15,7 +15,9 @@ from typing import List
 import importlib
 
 from ml_object_detector.config.load_config import load_config
-from ml_object_detector.etl.download_images import download_image, setup_logs
+from ml_object_detector.etl.download_images import download_image
+from ml_object_detector.utils.logging import setup_logs
+# from ml_object_detector.utils.fs import ensure_directory_exists
 from ml_object_detector.models.predictor import YoloPredictor
 from ml_object_detector.postprocess.analysis import (
     summarise_predictions,

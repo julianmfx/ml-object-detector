@@ -16,33 +16,38 @@
 
     <h1 class="mb-3">Prediction summary</h1>
 
-    <table class="table table-striped table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th scope="col">Thumbnail</th>
-                <th scope="col">Filename</th>
-                <th scope="col">Object</th>
-                <th scope="col">Confidence</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for row in rows %}
-            <tr>
-                <td>
-                    <img
-                        src="{{ row.image }}"
-                        class="img-thumbnail"
-                        style="max-height:80px;"
-                        alt="{{ row.image }}"
-                    >
-                </td>
-                <td class="text-break">{{ row.image }}</td>
-                <td>{{ row.object }}</td>
-                <td>{{ '{:.1%}'.format(row.conf) }}</td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-
+    {% if rows %}
+        <table class="table table-striped table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">Thumbnail</th>
+                    <th scope="col">Filename</th>
+                    <th scope="col">Object</th>
+                    <th scope="col">Confidence</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td>
+                        <img
+                            src="/processed/{{ row.image }}"
+                            class="img-thumbnail"
+                            style="max-height:80px;"
+                            alt="{{ row.image }}"
+                        >
+                    </td>
+                    <td class="text-break">{{ row.image }}</td>
+                    <td>{{ row.object }}</td>
+                    <td>{{ '{:.1%}'.format(row.conf) }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="alert alert-warning fw-semibold">
+            No object was detected in the report.
+        </div>
+    {% endif %}
 </body>
 </html>

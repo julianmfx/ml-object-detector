@@ -8,4 +8,10 @@ The project has a consistent pipeline that downloads images and predicts objects
 
 # Development
 
-The image detector will be deployed through an API using FastAPI. Then, it will containerized with Docker so that anyone can use it.
+The image detector it be deployed through a API using FastAPI. Then, it will conteneirized with Docker so that any person can use it.
+
+# Next steps
+
+1. Implement alarm system that warns user if there is no object predicted.
+2. Improve post method /detect_upload so it returns the image identified.
+3. Ship through docker to test in another computers.
