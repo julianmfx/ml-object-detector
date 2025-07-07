@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime
 from typing import List
@@ -28,6 +29,13 @@ MODEL_PATH = MODEL_DIR / MODEL_NAME  # ml_object_detector/models/weights/yolov8n
 log.info("Loading YOLO weights from %s", MODEL_NAME)
 
 
+@dataclass
+class OneResult:
+    boxed_path: Path
+    labels: int
+    speed_ms: float
+
+
 class YoloPredictor:
     """
     Convenience wrapper around `ultralytics.YOLO` that
@@ -39,6 +47,28 @@ class YoloPredictor:
         self.model = YOLO(model_path)
         self.model.info()
         log.info("YOLO model loaded and ready.")
+
+    def predict_one(
+        self, img_path: Path, out_dir: Path | None = None, conf: float | None = None
+    ) -> OneResult:
+        out_dir = Path(out_dir or OUTPUT_DIR)
+        conf = float(conf if conf is not None else CONF_THRESH)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        # Run YOLO ------------------------------
+        res = self.model.predict(
+            source=str(img_path),
+            save=True,
+            save_txt=True,
+            save_conf=True,
+            project=str(out_dir.parent),
+            name=out_dir.name,
+            conf=conf,
+            verbose=False,
+            exist_ok=True,
+        )[0]
+        boxed = Path(res.save_dir) / f"{img_path.stem}.jpg"
+        return OneResult(boxed, len(res.boxes), sum(res.speed.values()))
 
     def predict_images_in_folder(
         self,
@@ -54,7 +84,7 @@ class YoloPredictor:
         ----------
         folder   : source directory with .jpg/.png files
         out_dir  : where the annotated images should go
-        conf     : confidence threshold (0–1
+        conf     : confidence threshold (0–1)
 
         Returns
         -------

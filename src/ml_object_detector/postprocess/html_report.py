@@ -5,7 +5,6 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from ml_object_detector.config.load_config import load_config
 from ml_object_detector.utils.fs import ensure_directory_exists
-detector.config.load_config import load_config
 
 
 def _get_env() -> Environment:

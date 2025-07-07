@@ -8,7 +8,7 @@ from fastapi import (
     Request,
 )
 from starlette.status import HTTP_429_TOO_MANY_REQUESTS
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 import asyncio
 
@@ -61,7 +61,6 @@ app.mount("/processed", StaticFiles(directory=PROCESSED_IMAGES_DIR), name="proce
 
 # Helpers
 
-
 def _save_uploads(files: list[UploadFile], dest_dir: Path) -> list[Path]:
     ensure_directory_exists(dest_dir)
     paths = []
@@ -93,10 +92,9 @@ def _run_yolo_and_report(source_dir: Path, conf: float, run_id: str) -> Path:
     # If there are not rows, it means there were not objects detected
     # If there are more than 0 results, it means that at least one image was uploaded
     if not summaries and len(results) > 0:
-            send_alarm_email(run_id, len(results))
+        send_alarm_email(run_id, len(results))
 
     return report
-
 
 # Routes
 
@@ -143,27 +141,102 @@ async def docs_page():
 
 @app.post("/detect_upload")
 async def detect_upload(
-    background: BackgroundTasks, files: list[UploadFile] = File(...), conf: float = 0.8
+    request: Request,
+    background: BackgroundTasks,
+    files: list[UploadFile] = File(...),
+    conf: float = Form(0.8),
 ):
-    if not (0.0 <= conf <= 1.0):
-        raise HTTPException(400, "Confidence threshold must be between 0 and 1!")
+    # One-job-per-IP locking
+    client_ip = request.client.host
+    lock = client_locks.setdefault(client_ip, asyncio.Lock())
 
-    run_id = datetime.now().strftime("%Y%m%dT%H%M%S")
-    run_raw_dir = ROOT / cfg["input_dir"] / run_id  # data/raw/<run_id>/
-    ensure_directory_exists(run_raw_dir)
+    if lock.locked():
+        return JSONResponse(
+            {"detail": "Previsou detection still processing."},
+            status_code=HTTP_429_TOO_MANY_REQUESTS,
+        )
 
-    paths = _save_uploads(files, dest_dir=run_raw_dir)
-    # run heavy work in background so the request returns fast
-    background.add_task(_run_yolo_and_report, run_raw_dir, conf, run_id)
+    await lock.acquire()
 
-    return JSONResponse(
-        {
-            "status": "processing",
-            "images": [p.name for p in paths],
-            "report_hint": f"Check {cfg['uploads_dir']} soon.",
-        }
-    )
+    def release_lock_then(fn, *args, **kw):
+        """
+        Run fn(*args, **kw) and always release the lock afterwards.
+        """
+        try:
+            fn(*args, **kw)
+        finally:
+            lock.release()
 
+    try:
+        # Validation -----------------------------------
+        if not files:
+            raise HTTPException(400, "At least one image is required")
+        if not (0.0 <= conf <= 1.0):
+            raise HTTPException(400, "Confidence threshold must be between 0 and 1!")
+
+        # Build run_id ----------------
+        timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+        slug_base = Path(files[0].filename).stem if len(files) == 1 else "bulk_upload"
+        run_id = f"{slugify(slug_base)}_{timestamp}"
+
+        # Save uploads ----------------
+        run_raw_dir = ROOT / cfg["input_dir"] / run_id  # data/raw/<run_id>/
+        ensure_directory_exists(run_raw_dir)
+        paths = _save_uploads(files, dest_dir=run_raw_dir)
+
+        # Single-image path (single input, fast response) ----------------
+        if len(paths) == 1:
+            processed_dir = PROCESSED_IMAGES_DIR / run_id
+            ensure_directory_exists(processed_dir)
+
+            one = model.predict_one(
+                img_path=paths[0], out_dir=processed_dir, conf=conf
+            )
+            boxed_path = one.boxed_path
+
+            # Write entry in the log file
+            log.info(
+                "run_id=%s file=%s detections=%d inference_ms=%.1f saved_to=%s",
+                run_id,
+                boxed_path.name,
+                one.labels,
+                one.speed_ms,
+                boxed_path,
+            )
+
+            # Heavy report / e-mail re runs in the background
+            # Will release lock when done
+            public_url = f"/processed/{run_id}/{boxed_path.name}"
+            background.add_task(
+                release_lock_then, _run_yolo_and_report, run_raw_dir, conf, run_id
+            )
+
+            return RedirectResponse(
+                url=public_url,
+                status_code=303
+            )
+
+        # Multi-image path (bulk, background) -------------------------------
+        background.add_task(
+            release_lock_then, _run_yolo_and_report, run_raw_dir, conf, run_id
+        )
+
+        report_name = f"report_{run_id}.html"
+        return JSONResponse(
+            {
+                "run_id": run_id,
+                "status": "processing",
+                "images": [p.name for p in paths],
+                "poll_url": f"/processing/{run_id}/{report_name}",
+                "report_hint": f"Check {cfg['uploads_dir']} soon.",
+                "log_file": "/logs/upload_images.log",
+            }
+        )
+
+    except Exception:
+        # Make sure we don't leave the lock hanging on unexpected errors
+        lock.release()
+        raise
 
 @app.post("/detect_query")
 async def detect_query(
@@ -186,7 +259,7 @@ async def detect_query(
     if lock.locked():
         return JSONResponse(
             {"detail": "Previous detection stil precessing."},
-            status_code=HTTP_429_TOO_MANY_REQUESTS
+            status_code=HTTP_429_TOO_MANY_REQUESTS,
         )
 
     await lock.acquire()
@@ -223,7 +296,7 @@ async def detect_query(
     background.add_task(task_wrapper)
 
     report_name = f"report_{run_id}.html"
-    accepts_html =  "text/html" in request.headers.get("accept", "").lower()
+    accepts_html = "text/html" in request.headers.get("accept", "").lower()
 
     if accepts_html:
         # Browser to the report
