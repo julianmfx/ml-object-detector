@@ -12,6 +12,5 @@ The image detector it be deployed through a API using FastAPI. Then, it will con
 
 # Next steps
 
-1. Implement alarm system that warns user if there is no object predicted.
-2. Improve post method /detect_upload so it returns the image identified.
-3. Ship through docker to test in another computers.
+1. Improve post method /detect_upload so it returns the image identified.
+2. Ship through docker to test in another computers.
