@@ -12,5 +12,4 @@ The image detector it be deployed through a API using FastAPI. Then, it will con
 
 # Next steps
 
-1. Improve post method /detect_upload so it returns the image identified.
-2. Ship through docker to test in another computers.
+1. Ship through docker to test in another computers.
