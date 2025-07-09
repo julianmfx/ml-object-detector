@@ -8,3 +8,4 @@ confidence_threshold: 0.8
 template_dir: src/ml_object_detector/postprocess/templates
 reports_dir: reports
 uploads_dir: uploads
+static_dir: static

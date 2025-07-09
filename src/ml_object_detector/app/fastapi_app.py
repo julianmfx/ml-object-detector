@@ -36,9 +36,11 @@ log = setup_logs()
 ROOT = Path(cfg["ROOT"])
 REPORTS_DIR = ROOT / cfg["reports_dir"]
 PROCESSED_IMAGES_DIR = ROOT / cfg["output_dir"]
+STATIC_DIR = ROOT / cfg["static_dir"]
 
 ensure_directory_exists(REPORTS_DIR)
 ensure_directory_exists(PROCESSED_IMAGES_DIR)
+ensure_directory_exists(STATIC_DIR)
 
 model = YoloPredictor()
 
@@ -54,6 +56,9 @@ app.mount(
     StaticFiles(directory=REPORTS_DIR, html=True),
     name="reports",
 )
+
+# Routing API to load favicon.ico
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Routing API to serve model artifacts (images)
 app.mount("/processed", StaticFiles(directory=PROCESSED_IMAGES_DIR), name="processed")
@@ -96,8 +101,12 @@ def _run_yolo_and_report(source_dir: Path, conf: float, run_id: str) -> Path:
 
     return report
 
-# Routes
 
+# Routes/Endpoints
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse(STATIC_DIR / "favicon.ico")
 
 @app.get("/", response_class=HTMLResponse)
 async def docs_page():
@@ -106,6 +115,13 @@ async def docs_page():
     """
 
     return """
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+        <title>YOLO object detector</title>
+    </head>
+    <body>
     <h1>YOLO object detector</h1>
 
     <h2>1. Try with your own images</h2>
@@ -222,6 +238,15 @@ async def detect_upload(
         )
 
         report_name = f"report_{run_id}.html"
+        accepts_html = "text/html" in request.headers.get("accept", "").lower()
+
+        if accepts_html:
+            # Brower to the processing page like detect_query endpoint
+            return RedirectResponse(
+                url=f"/processing/{run_id}/{report_name}", status_code=303
+            )
+
+        # Fallback to JSON if not HTML client
         return JSONResponse(
             {
                 "run_id": run_id,
