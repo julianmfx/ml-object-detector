@@ -191,7 +191,7 @@ async def detect_upload(
             raise HTTPException(400, "Confidence threshold must be between 0 and 1!")
 
         # Build run_id ----------------
-        timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+        timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
         slug_base = Path(files[0].filename).stem if len(files) == 1 else "bulk_upload"
         run_id = f"{slugify(slug_base)}_{timestamp}"
 
@@ -301,7 +301,7 @@ async def detect_query(
         raise HTTPException(400, "Confidence threshold must be between 0 and 1!")
 
     # Folder set-up ───────────────────────────────────────────────
-    timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+    timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     query_slug = slugify(query.replace(",", " "))
 
     run_id = f"{query_slug}_{timestamp}"

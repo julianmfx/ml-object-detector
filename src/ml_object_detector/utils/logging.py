@@ -1,4 +1,6 @@
 import logging
+import logging.config
+import logging.handlers
 from pathlib import Path
 
 from ml_object_detector.config.load_config import load_config

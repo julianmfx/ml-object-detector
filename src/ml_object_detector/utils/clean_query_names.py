@@ -1,26 +1,33 @@
-
+from pathlib import Path
 import re
 import unicodedata
 
-def slugify(text: str, max_len: int = 30) -> str:
+regex_expression = re.compile(r"[^a-z0-9]+")
+
+def slugify(filename: str, max_len: int = 30) -> str:
     """
     Turn arbitrary text into a filesystem-safe slug.
 
-    • lower-cases the text
-    • strips accents (café → cafe)
-    • replaces any non-alphanumeric run with a single hyphen
-    • collapses consecutive hyphens
-    • trims to *max_len* characters
+    - lower-cases the text
+    - strips accents (café → cafe)
+    - drop the extension
+    - replaces any non-alphanumeric run with a single hyphen
+    - collapses consecutive hyphens
+    - trims to *max_len* characters
     """
+    # Work on the stem only
+    stem = Path(filename).stem
 
     # Strip accents -----------------------
-    text = unicodedata.normalize("NFKD", text)
-    text = text.encode("ascii", "ignore").decode("ascii")
+    stem = (
+        unicodedata.normalize("NFKD", stem)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+        .lower()
+    )
 
-    # Lower clase and replace wanted chars with -
-    text = re.sub(r"[^a-z0-0]+", "-", text.lower())
+    # Replace unwanted chars with "-", collapse duplicates
+    slug = regex_expression.sub("-", stem)
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")
 
-    # Collapse runs of - and trim
-    text = re.sub(r"-{2,}", "-", text).strip("-")
-
-    return text[:max_len] or "query"
+    return slug[:max_len] or "query"
