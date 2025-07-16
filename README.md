@@ -1,6 +1,12 @@
 # Briefing
 
-This project main goal is to develop and strengthen my skills in logging, project architecture, Machine Learning (ML) pipelines, FastAPI development and Docker containerization.
+This project main goal is to develop and strengthen my skills in Data Science and MLOPs. The main skills developed are:
+* Logging
+* Project architecture
+* Machine Learning (ML) pipelines
+* Testing
+* FastAPI development
+* Docker containerization
 
 ---
 
