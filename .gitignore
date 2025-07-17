@@ -4,7 +4,7 @@ ml_object_detector.egg-info/
 venv/
 .env
 __pycache__/
-*.pyc
+*.py[cod]
 input_images/*
 output_images/*
 data/*
