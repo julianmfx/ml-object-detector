@@ -3,7 +3,7 @@ from ml_object_detector.services.file_inspection import inspect_image
 from ml_object_detector.domain.errors import InvalidImageError
 from fastapi.responses import JSONResponse
 
-router = APIRouter(prefix="/images", tags=["Uploads"])
+router = APIRouter(prefix="/images", tags=["Upload"])
 
 async def guard_image(file: UploadFile = File(...)) -> bytes:
     data = await file.read()

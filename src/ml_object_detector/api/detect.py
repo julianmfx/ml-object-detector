@@ -6,19 +6,17 @@ from fastapi import (
     Form,
     BackgroundTasks,
     HTTPException,
-    status,
 )
 from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 from fastapi.responses import JSONResponse, RedirectResponse
 from pathlib import Path
 from datetime import datetime
-import asyncio
+import logging
 from ml_object_detector.services.detector import (
     acquire_lock,
     run_yolo_and_report,
     save_uploads,
     model,
-    log,
     ROOT,
     PROCESSED,
     cfg,
@@ -27,8 +25,8 @@ from ml_object_detector.utils.fs import ensure_directory_exists
 from ml_object_detector.utils.clean_query_names import slugify
 from ml_object_detector.etl.download_images import download_image
 
-router = APIRouter(tags=["Detection"])
-
+router = APIRouter(tags=["Detect"])
+log = logging.getLogger(__name__)
 
 def release_lock_then(lock, fn, *args, **kw):
     """
@@ -47,12 +45,13 @@ async def detect_upload(
     files: list[UploadFile] = File(...),
     conf: float = Form(0.8),
 ):
+    logger = getattr(request.state, "log", log)   # fallback to module-level log
     client_ip = request.client.host
     lock = acquire_lock(client_ip)
 
     if lock.locked():
         return JSONResponse(
-            {"detail": "Previsou detection still processing."},
+            {"detail": "Previous detection still processing."},
             status_code=HTTP_429_TOO_MANY_REQUESTS,
         )
 
@@ -84,7 +83,7 @@ async def detect_upload(
             boxed_path = one.boxed_path
 
             # Write entry in the log file
-            log.info(
+            logger.info(
                 "run_id=%s file=%s detections=%d inference_ms=%.1f saved_to=%s",
                 run_id,
                 boxed_path.name,
@@ -149,7 +148,7 @@ async def detect_query(
     3. Immediately redirects the browser to a lightweight “processing…”
        page that polls until the report is ready.
     """
-
+    logger = getattr(request.state, "log", log)   # fallback to module-level log
     client_ip = request.client.host
     lock = acquire_lock(client_ip)
 
@@ -181,7 +180,7 @@ async def detect_query(
     ensure_directory_exists(run_raw_dir)
 
     for term in [q.strip() for q in query.split(",") if q.strip()]:
-        download_image(term, n=n, log=log, dest_dir=run_raw_dir)
+        download_image(term, n=n, log=logger, dest_dir=run_raw_dir)
 
     # Kick off heavy task ───────────────────────────────────────────────
 

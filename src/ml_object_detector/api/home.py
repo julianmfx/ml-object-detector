@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 from pathlib import Path
 from ml_object_detector.config.load_config import load_config
