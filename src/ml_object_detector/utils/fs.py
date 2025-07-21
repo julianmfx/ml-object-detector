@@ -1,6 +1,5 @@
 from pathlib import Path
 import os
-import errno
 import logging
 
 log = logging.getLogger(__name__)

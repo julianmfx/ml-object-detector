@@ -9,3 +9,10 @@ template_dir: src/ml_object_detector/postprocess/templates
 reports_dir: reports
 uploads_dir: uploads
 static_dir: static
+file_inspection:
+  allowed_mime:
+    - image/jpeg
+    - image/png
+    - image/webp
+  hard_limit_mb: 10   # absolute hard stop (uploads > this are rejected)
+  soft_limit_mb: 5    # optional, require confirmation above this size

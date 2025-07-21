@@ -5,8 +5,6 @@ import requests
 import logging
 import logging.config
 import hashlib
-import uuid
-from datetime import datetime
 from pathlib import Path
 from ml_object_detector.config.load_config import load_config
 from ml_object_detector.utils.fs import ensure_directory_exists

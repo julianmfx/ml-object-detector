@@ -2,20 +2,22 @@ import asyncio
 import uuid
 import shutil
 from pathlib import Path
-from datetime import datetime
-from fastapi import BackgroundTasks, UploadFile
+from fastapi import UploadFile
+import logging
 from ml_object_detector.models.predictor import YoloPredictor
 from ml_object_detector.postprocess.analysis import build_summaries
 from ml_object_detector.postprocess.html_report import write_html_report
 from ml_object_detector.utils.email_alarm import send_alarm_email
 from ml_object_detector.utils.fs import ensure_directory_exists
-from ml_object_detector.utils.clean_query_names import slugify
 from ml_object_detector.config.load_config import load_config
 
 cfg = load_config()
+log = logging.getLogger(__name__)
+
 ROOT = Path(cfg["ROOT"])
 PROCESSED = ROOT / cfg["output_dir"]
 REPORTS = ROOT / cfg["reports_dir"]
+
 
 model = YoloPredictor()
 locks: dict[str, asyncio.Lock] = {}
