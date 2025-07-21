@@ -1,6 +1,6 @@
 # Briefing
 
-This project main goal is to develop and strengthen my skills in Data Science and MLOPs. The main skills developed are:
+This project main goal is to strengthen my skills in Data Science and MLOPs. The main skills developed are:
 * Logging
 * Project architecture
 * Machine Learning (ML) pipelines
@@ -12,7 +12,7 @@ This project main goal is to develop and strengthen my skills in Data Science an
 
 # Current Features
 
-The project includes a fully functional ML pipeline has a consistent pipeline, which can be launched by running the `ml-api` script in the terminal (inside a virtual enviroment). Once the local FastAPI server is up and running, it offers two key features:
+The project includes a fully functional ML pipeline, which can be launched by running the `ml-api` script in the terminal (inside a virtual enviroment). Once the local FastAPI server is up and running, it offers two key features:
 
 ## 1. Image Detection
 Upload one or multiple images for object detection:
