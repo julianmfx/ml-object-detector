@@ -5,7 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ml_object_detector"
 version = "0.1.0"
-dependencies = []
+dependencies = [
+  "aiofiles",
+  "python-magic"
+]
 
 [project.scripts]
 ml-etl = "ml_object_detector.cli.run_etl:main"

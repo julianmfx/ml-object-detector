@@ -18,20 +18,33 @@ exactly once, *after* the app is fully configured, and then cache them.
 """
 
 from __future__ import annotations
-from functools import lru_cache
+# from functools import lru_cache  # removed - dict not hashable
 from typing import NamedTuple, Any, Mapping
+
 
 class FilePolicy(NamedTuple):
     """
     File inspection policy.
     """
+
     allowed_mime: set[str]
-    hard_limit_mb: int          # hard upper bound in bytes
-    soft_limit_mb: int | None   # None -> no soft limit / confirmation step
+    hard_limit_mb: int  # hard upper bound in bytes
+    soft_limit_mb: int | None  # None -> no soft limit / confirmation step
+
+    # read-only attribute
+    # dynamically computed when accesed
+    @property
+    def max_bytes(self) -> int:
+        """Hard byte limit (non-zero)"""
+        return self.hard_limit_mb * 1024 * 1024
+
+    @property
+    def soft_bytes(self) -> int | None:
+        """Soft byte limit (optional)"""
+        return self.soft_limit_mb * 1024 * 1024 if self.soft_limit_mb else None
 
 
 # Public loader
-@lru_cache(maxsize=1)
 def load_policy(cfg: Mapping[str, Any]) -> FilePolicy:
     """Return a cached :class:`FilePolicy` built from *cfg*.
 
@@ -67,13 +80,17 @@ def load_policy(cfg: Mapping[str, Any]) -> FilePolicy:
     try:
         allowed_mime_raw = section["allowed_mime"]
         hard_mb = int(section["hard_limit_mb"])
-        soft_mb = section.get("soft_limit_mb")
+        soft_mb = section.get("soft_limit_mb", None)
+        soft_mb = int(soft_mb) if soft_mb is not None else None
 
     except KeyError as exc:
         missing = exc.args[0]
         raise KeyError(
             f"Missing required configuration key: file_inspection.{missing}"
         ) from exc
+
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Invlidad type in file_inspection config") from exc
 
     # Basic validation
     if not isinstance(allowed_mime_raw, (list, set, tuple)):
@@ -85,12 +102,10 @@ def load_policy(cfg: Mapping[str, Any]) -> FilePolicy:
     if soft_mb is not None and int(soft_mb) <= 0:
         raise ValueError("file_inspection.soft_limit_mb must be > 0 if set")
 
-    allowed_mime = {
-        m.ower().strip() for m in allowed_mime_raw if m.strip()
-    }
+    allowed_mime = {m.lower().strip() for m in allowed_mime_raw if m.strip()}
 
     return FilePolicy(
         allowed_mime=allowed_mime,
-        max_bytes=hard_mb*1024*1024,
-        soft_bytes=int(soft_mb*1024*1024 if soft_mb is not None else None)
+        hard_limit_mb=hard_mb,
+        soft_limit_mb=soft_mb
     )
