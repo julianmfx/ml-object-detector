@@ -51,11 +51,59 @@ async def docs_page():
 
     <script>
       document.querySelectorAll("form").forEach(f => {
-        f.addEventListener("submit", () => {
+        f.addEventListener("submit", async (e) => {
           const btn = f.querySelector(".detect-btn");
-          if (btn) {
-            btn.disabled = true;
-            btn.textContent = "Processing…";
+
+          // Only handle the query form with AJAX
+          if (f.action.includes("/detect_query")) {
+            e.preventDefault();
+
+            if (btn) {
+              btn.disabled = true;
+              btn.textContent = "Processing…";
+            }
+
+            try {
+              const formData = new FormData(f);
+              const response = await fetch(f.action, {
+                method: 'POST',
+                body: formData
+              });
+
+              if (response.ok) {
+                // Success - follow redirect or handle response
+                if (response.redirected) {
+                  window.location.href = response.url;
+                } else {
+                  const data = await response.json();
+                  if (data.poll_url) {
+                    window.location.href = data.poll_url;
+                  }
+                }
+              } else {
+                // Error - show popup
+                const errorData = await response.json();
+                alert(errorData.error || "An error occurred. Please try again.");
+
+                // Reset button
+                if (btn) {
+                  btn.disabled = false;
+                  btn.textContent = "Detect";
+                }
+              }
+            } catch (error) {
+              alert("Network error. Please check your connection and try again.");
+              if (btn) {
+                btn.disabled = false;
+                btn.textContent = "Detect";
+              }
+            }
+          } else {
+            // Regular form submission for uploads
+            if (btn) {
+              btn.disabled = true;
+              btn.textContent = "Processing…";
+            }
           }
         });
       });

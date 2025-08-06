@@ -65,7 +65,11 @@ async def inspect_uploaded_file(upfile: UploadFile) -> Tuple[str, Path]:
     try:
         # 2) Stream from client to disk, chunk-by-chunk
         async with aiofiles.open(temporary_path, "wb") as destination:
-            async for chunk in upfile.stream(CHUNK):
+            while True:
+                chunk = await upfile.read(CHUNK)
+                if not chunk:
+                    break
+
                 total += len(chunk)
                 if total > policy.max_bytes:
                     raise InvalidImageError(

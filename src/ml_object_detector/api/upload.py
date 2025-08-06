@@ -1,14 +1,16 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
-from ml_object_detector.services.file_inspection import inspect_image
+from ml_object_detector.services.file_inspection import inspect_uploaded_file
 from ml_object_detector.domain.errors import InvalidImageError
 from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/images", tags=["Upload"])
 
 async def guard_image(file: UploadFile = File(...)) -> bytes:
-    data = await file.read()
     try:
-        inspect_image(data)
+        await inspect_uploaded_file(file)
+        # Reset file pointer after inspection
+        await file.seek(0)
+        data = await file.read()
     except InvalidImageError as e:
         raise HTTPException(status_code=422, detail=str(e))
     return data  # Verified image bytes

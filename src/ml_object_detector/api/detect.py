@@ -165,6 +165,16 @@ async def detect_query(
         raise HTTPException(
             400, "A query is required in order to process de object detector."
         )
+
+    query_terms = [q.strip() for q in query.split(",") if q.strip()]
+    if len(query_terms) > 3:
+        # Release lock and return error for popup display
+        lock.release()
+        return JSONResponse(
+            {"error": "Maximum of 3 query terms allowed per request. Please reduce your query."},
+            status_code=400
+        )
+
     if not (0 <= n <= 15):
         raise HTTPException(400, "The number of images must be between 0 and 15.")
 
