@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-from datetime import datetime
 from typing import List
 from ultralytics import YOLO
 from ultralytics.engine.results import Results

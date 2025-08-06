@@ -1,3 +1,6 @@
+# ⚠️ LEGACY FILE: This is the original FastAPI entry point kept for reference.
+# It has been replaced by a modular router system in `fastapi_app.py`
+
 from fastapi import (
     FastAPI,
     UploadFile,

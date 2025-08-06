@@ -15,7 +15,7 @@ def main() -> None:
                         help="Auto-reload on code changes (dev only)")
     args = parser.parse_args()
     uvicorn.run(
-        "ml_object_detector.app.fastapi_app:app",
+        "ml_object_detector.fastapi_app:app",
         host=args.host,
         port=args.port,
         reload=args.reload,

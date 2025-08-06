@@ -41,6 +41,9 @@ The image detector is deployed through a API using FastAPI. Then, it will conten
 # Next steps
 
 1. Restrict upload to images
+* File inspection was completed and test with pytest
+    * Next step is to test it running the api
+
 2. Ship through docker to test in another computers.
 
 ## Further details
